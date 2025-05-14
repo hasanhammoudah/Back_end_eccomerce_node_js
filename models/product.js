@@ -1,8 +1,9 @@
+const { type } = require('express/lib/response');
 const mongoose = require('mongoose');
 const productSchema = new mongoose.Schema({
     productName: {
         type: String,
-        trim:true,
+        trim: true,
         required: true,
     },
     images: [
@@ -19,8 +20,17 @@ const productSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    averageRating: {
+        type: Number,
+        default: 0,
+    },
+    totalRating: {
+        type: Number,
+        default: 0,
+    },
+
     productPrice: {
-        type: String,
+        type: Number,
         required: true,
     },
     quantity: {

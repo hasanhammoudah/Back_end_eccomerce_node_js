@@ -1,10 +1,17 @@
 const express = require("express");
 const ProductReview = require("../models/product_review");
 const ProductReviewRouter = express.Router();
+const Product = require('../models/product'); // غيّر المسار حسب مكان ملف product.js
+
 
 ProductReviewRouter.post("/api/product-review", async (req, res) => {
   try {
     const { buyerId, email, fullName, productId, rating, review } = req.body;
+    //check if the user has already reviewed the product
+    const existingReview = await ProductReview.findOne({ buyerId, productId });
+    if (existingReview) {
+      return res.status(400).json({ error: "You have already reviewed this product" });
+    }
     const productReview = new ProductReview({
       buyerId,
       email,
@@ -14,6 +21,16 @@ ProductReviewRouter.post("/api/product-review", async (req, res) => {
       review,
     });
     await productReview.save();
+    // find the product associated with the review and update its average rating
+    const product = await Product.findById(productId);
+    if(!product){
+      return res.status(404).json({ error: "Product not found" });
+    }
+    //Update the totalRating and averageRating of the product
+    product.totalRating += 1;
+    product.averageRating = ((product.averageRating * (product.totalRating - rating)) + rating) / product.totalRating;
+    // Save the updated product
+    await product.save();
     res.status(201).send(productReview);
   } catch (e) {
     res.status(500).json({ error: e.message });
