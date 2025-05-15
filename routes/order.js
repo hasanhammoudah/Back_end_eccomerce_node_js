@@ -2,8 +2,9 @@ const express = require('express');
 const orderRouter = express.Router();
 const Order = require('../models/order');
 const res = require('express/lib/response');
+const { auth,vendorAuth } = require('../middleware/auth');
 
-orderRouter.post('/api/orders', async (req, res) => {
+orderRouter.post('/api/orders', auth,async (req, res) => {
     try {
         const { fullName, email, state, city, locality, productName, productPrice, quantity, category, image, buyerId, vendorId } = req.body;
         const createdAt = new Date().getMilliseconds();
@@ -33,7 +34,7 @@ orderRouter.post('/api/orders', async (req, res) => {
 
 // Get route for fetching all orders by buyerId
 
-orderRouter.get('/api/orders/by-buyer/:buyerId', async (req, res) => {
+orderRouter.get('/api/orders/by-buyer/:buyerId', auth,async (req, res) => {
     try {
         // Extract buyerId from request parameters
         const { buyerId } = req.params;
@@ -52,7 +53,7 @@ orderRouter.get('/api/orders/by-buyer/:buyerId', async (req, res) => {
 });
 
 // Delete route for deleting an order by orderId
-orderRouter.delete('/api/orders/:orderId', async (req, res) => {
+orderRouter.delete('/api/orders/:orderId', auth,async (req, res) => {
     try {
         // Extract orderId from request parameters
         const { orderId } = req.params;
@@ -72,7 +73,7 @@ orderRouter.delete('/api/orders/:orderId', async (req, res) => {
 
 // Get route for fetching orders by vendorId
 
-orderRouter.get('/api/orders/by-vendor/:vendorId', async (req, res) => {
+orderRouter.get('/api/orders/by-vendor/:vendorId', auth,vendorAuth,async (req, res) => {
     try {
         // Extract vendorId from request parameters
         const { vendorId } = req.params;
@@ -157,6 +158,16 @@ orderRouter.patch('/api/orders/:orderId/cancel', async (req, res) => {
       return res.status(200).json(updatedOrder);
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+
+  orderRouter.get('/api/orders',async(req,res)=>{
+    try {
+        const orders = await Order.find();
+        return res.status(200).json(orders);
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
     }
   });
 
