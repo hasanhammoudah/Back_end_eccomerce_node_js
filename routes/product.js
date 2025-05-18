@@ -84,8 +84,9 @@ productRouter.get("/api/recommended-products", async (req, res) => {
   productRouter.get('/api/top-rated-products', async (req, res) => {
     try {
       // Fetch the top 10 products sorted by rating in descending order
-      const topRatedProducts = await Product.find().sort({ rating: -1 }).limit(10);
-      if(!topRatedProducts || topRatedProducts.length == 0){
+      const topRatedProducts = await Product.find()
+      .sort({ averageRating: -1 })
+      .limit(10);      if(!topRatedProducts || topRatedProducts.length == 0){
         return res.status(404).json({msg:"Products not found"});
       }else{
           return res.status(200).json(topRatedProducts);
@@ -94,5 +95,54 @@ productRouter.get("/api/recommended-products", async (req, res) => {
       res.status(500).json({ error: e.message });
     }
   });
+
+  productRouter.get('/api/products-by-subcategory/:subCategory',async(req,res)=>{
+  try {
+    const {subCategory} = req.params;
+    const products = await Product.find({subCategory:subCategory});
+    if(!products || products.length == 0){
+      return res.status(404).json({msg:"No Products found in this subcategory"});
+    }else{
+        return res.status(200).json(products);
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+  });
+
+  //Route for searching products by name or description
+productRouter.get('/api/search-products', async (req, res) => {
+  try {
+    //Extract the query parameter from the request
+    const {query}= req.query;
+    //Validate that a query parameter is provided.
+    // if missing,return a 400 status with an error message
+    if(!query){
+      return res.status(400).json({msg:"Query parameter required"});
+    }
+    //search for the product collection for documents where either 'productName' or 'description' contains the query string
+    //contains the specified query String 
+   const products =  await Product.find({
+      $or:[
+        //Regex will match any productName containing the query string
+        //For example, if the query is "shoe", it will match "shoe", "shoes", "shoeing", etc.
+        //if "apple" is part of any product name, so products name "apple pie" will be returned
+        //or if "apple" is part of any description, so products name "apple pie" will be returned
+        { productName: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } }
+      ]
+
+    });
+    //Check if any products were found
+    if(!products || products.length == 0){
+      return res.status(404).json({msg:"No Products found matching the query"});
+    }
+    //If products are found, return them with a 200 status code
+    return res.status(200).json(products);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = productRouter;
