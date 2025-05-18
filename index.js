@@ -20,14 +20,14 @@ const app = express();
 //middleware - to register the router
 app.use(express.json());
 app.use(cors());
-app.use('/api',authRouter);
-app.use('/api',bannerRouter);
-app.use('/api',categoryRouter);
-app.use('/api',subCategoryRouter);
-app.use('/api',productRouter);
-app.use('/api',productReviewRouter);
-app.use('/api',vendorRouter);
-app.use('/api',orderRouter);
+app.use(authRouter);
+app.use(bannerRouter);
+app.use(categoryRouter);
+app.use(subCategoryRouter);
+app.use(productRouter);
+app.use(productReviewRouter);
+app.use(vendorRouter);
+app.use(orderRouter);
 
 
 //connect to the database
