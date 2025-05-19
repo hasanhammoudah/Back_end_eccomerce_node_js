@@ -129,7 +129,9 @@ productRouter.get('/api/search-products', async (req, res) => {
         //if "apple" is part of any product name, so products name "apple pie" will be returned
         //or if "apple" is part of any description, so products name "apple pie" will be returned
         { productName: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } }
+        { description: { $regex: query, $options: 'i' } },
+        { category: { $regex: query, $options: 'i' } }
+
       ]
 
     });
