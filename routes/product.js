@@ -145,7 +145,7 @@ productRouter.get('/api/search-products', async (req, res) => {
   }
 });
 
-//Route to edit an existing product
+//Route to edit an existing product 
 
 productRouter.put('/api/edit-product/:productId',auth,vendorAuth, async (req, res) => {
   try {
