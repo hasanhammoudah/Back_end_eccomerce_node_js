@@ -110,7 +110,7 @@ productRouter.get("/api/recommended-products", async (req, res) => {
   }
   });
 
-  //Route for searching products by name or description
+  //Route for searching products by name or  description
 productRouter.get('/api/search-products', async (req, res) => {
   try {
     //Extract the query parameter from the request
