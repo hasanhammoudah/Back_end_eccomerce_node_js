@@ -277,5 +277,20 @@ productRouter.delete("/api/delete-product/:productId", auth, vendorAuth, async (
   }
 });
 
+productRouter.get("/api/product/:productId",async(req,res)=>{
+try {
+  const {productId} = req.params;
+  const product = await Product.findById(productId);
+  if (!product) {
+    return res.status(404).json({ msg: "Product not found" });
+  }
+  return res.status(200).json(product);
+
+} catch (error) {
+  res.status(500).json({ error: error.message });
+
+}
+});
+
 
 module.exports = productRouter;
