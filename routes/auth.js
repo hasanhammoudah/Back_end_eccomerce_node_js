@@ -9,6 +9,8 @@ const crypto = require("crypto");
 const { auth } = require("../middleware/auth");
 
 const otpStore = new Map(); // In-memory store for OTPs
+let refreshTokens = [];
+
 authRouter.post("/api/signup", async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
@@ -53,7 +55,8 @@ authRouter.post("/api/signup", async (req, res) => {
 authRouter.post("/api/signin", async (req, res) => {
   try {
     const { email, password } = req.body;
-    const findUser = await User.findOne({ email });
+    const emailFormatted = email.toLowerCase().trim();
+    const findUser = await User.findOne({ email: emailFormatted });    
     if (!findUser) {
       res.status(400).json({ msg: "User not found" });
     } else if (!findUser.isVerified) {
@@ -65,20 +68,69 @@ authRouter.post("/api/signin", async (req, res) => {
       if (!isMatch) {
         res.status(400).json({ msg: "Invalid Password" });
       } else {
-        const token = jwt.sign({ id: findUser._id }, "passwordkey", {
-          expiresIn: "1m",
-        }); // set token expiration to 1 minute`2q1a         `1
+        const accessToken = jwt.sign(
+          { id: findUser._id },
+          process.env.ACCESS_SECRET,
+          { expiresIn: "1m" }
+        );
+        
+        const refreshToken = jwt.sign(
+          { id: findUser._id },
+          process.env.REFRESH_SECRET,
+          { expiresIn: "7d" }
+        );
+        
+        // احفظ التوكن في المستخدم
+        await User.findByIdAndUpdate(findUser._id, { refreshToken });
+        
+
 
         //remove sensitive information
-        const { password, ...userWithoutPassword } = findUser._doc;
+        const { password, refreshToken:_,...userWithoutPassword } = findUser._doc;
         //send then response
-        res.json({ token, userWithoutPassword });
+        return res.json({
+          accessToken,
+          refreshToken,
+          userWithoutPassword
+        });
       }
     }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
+authRouter.post("/api/refresh-token", async (req, res) => {
+  const { refreshToken } = req.body;
+
+  // تحقق من وجود التوكن
+  if (!refreshToken) {
+    return res.status(401).json({ msg: "Refresh token is required" });
+  }
+
+  const user = await User.findOne({ refreshToken });
+  if (!user) {
+    return res.status(403).json({ msg: "Refresh token is invalid" });
+  }
+
+
+  try {
+    // تحقق من صحة التوكن
+    const verified = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+
+    // أنشئ Access Token جديد
+    const newAccessToken = jwt.sign(
+      { id: verified.id },
+      process.env.ACCESS_SECRET,
+      { expiresIn: "1m" }
+    );
+    
+
+    return res.json({ accessToken: newAccessToken });
+  } catch (error) {
+    return res.status(403).json({ msg: "Invalid or expired refresh token" });
+  }
+});
+
 
 //check token validity
 authRouter.post("/tokenIsValid", async (req, res) => {
@@ -86,7 +138,7 @@ authRouter.post("/tokenIsValid", async (req, res) => {
     const token = req.header("x-auth-token");
     if (!token) return res.json(false);
     //verify the token
-    const verified = jwt.verify(token, "passwordkey");
+    const verified = jwt.verify(token, process.env.ACCESS_SECRET);
     if (!verified) return res.json(false);
     //if verification failed(expired or invalid token), jwt.verify will throw an error
     const user = await User.findById(verified.id);
@@ -97,6 +149,23 @@ authRouter.post("/tokenIsValid", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
+authRouter.post("/api/logout", async (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(400).json({ msg: "Refresh token is required" });
+  }
+
+  // احذف التوكن من المستخدم
+  await User.findOneAndUpdate(
+    { refreshToken },
+    { refreshToken: null }
+  );
+
+  res.status(200).json({ msg: "Logged out successfully" });
+});
+
+
 //Define a Get Route for the authentication router
 authRouter.get("/", auth, async (req, res) => {
   try {
@@ -167,7 +236,7 @@ authRouter.put("/api/user/:id", async (req, res) => {
     }
     // Return the updated user data
     return res.status(200).json(updatedUser);
-  } catch (error) {}
+  } catch (error) { }
 });
 
 //fetch all users(exclude(password) api endpoint)
