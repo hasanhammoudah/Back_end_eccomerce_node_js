@@ -9,7 +9,7 @@ const crypto = require("crypto");
 const { auth } = require("../middleware/auth");
 
 const otpStore = new Map(); // In-memory store for OTPs
-let refreshTokens = [];
+// let refreshTokens = [];
 
 authRouter.post("/api/signup", async (req, res) => {
   try {
@@ -38,10 +38,9 @@ authRouter.post("/api/signup", async (req, res) => {
       });
       user = await user.save();
 
-      // res.json({user})
       //send OTP via email
-      emailResponse = await sendOtpEmail(email, otp);
-      res.status(201).json({
+      let emailResponse = await sendOtpEmail(email, otp);
+      return res.status(201).json({
         msg: "Signup successfully, please verify your email",
         emailResponse,
       });
@@ -50,13 +49,12 @@ authRouter.post("/api/signup", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
 //signin api endpoint
 authRouter.post("/api/signin", async (req, res) => {
   try {
     const { email, password } = req.body;
     const emailFormatted = email.toLowerCase().trim();
-    const findUser = await User.findOne({ email: emailFormatted });    
+    const findUser = await User.findOne({ email: emailFormatted });
     if (!findUser) {
       res.status(400).json({ msg: "User not found" });
     } else if (!findUser.isVerified) {
@@ -73,20 +71,16 @@ authRouter.post("/api/signin", async (req, res) => {
           process.env.ACCESS_SECRET,
           { expiresIn: "1m" }
         );
-        
+
         const refreshToken = jwt.sign(
           { id: findUser._id },
           process.env.REFRESH_SECRET,
           { expiresIn: "7d" }
         );
-        
         // احفظ التوكن في المستخدم
         await User.findByIdAndUpdate(findUser._id, { refreshToken });
-        
-
-
         //remove sensitive information
-        const { password, refreshToken:_,...userWithoutPassword } = findUser._doc;
+        const { password, refreshToken: _, ...userWithoutPassword } = findUser._doc;
         //send then response
         return res.json({
           accessToken,
@@ -99,40 +93,6 @@ authRouter.post("/api/signin", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-authRouter.post("/api/refresh-token", async (req, res) => {
-  const { refreshToken } = req.body;
-
-  // تحقق من وجود التوكن
-  if (!refreshToken) {
-    return res.status(401).json({ msg: "Refresh token is required" });
-  }
-
-  const user = await User.findOne({ refreshToken });
-  if (!user) {
-    return res.status(403).json({ msg: "Refresh token is invalid" });
-  }
-
-
-  try {
-    // تحقق من صحة التوكن
-    const verified = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
-
-    // أنشئ Access Token جديد
-    const newAccessToken = jwt.sign(
-      { id: verified.id },
-      process.env.ACCESS_SECRET,
-      { expiresIn: "1m" }
-    );
-    
-
-    return res.json({ accessToken: newAccessToken });
-  } catch (error) {
-    return res.status(403).json({ msg: "Invalid or expired refresh token" });
-  }
-});
-
-
-//check token validity
 authRouter.post("/tokenIsValid", async (req, res) => {
   try {
     const token = req.header("x-auth-token");
@@ -149,6 +109,45 @@ authRouter.post("/tokenIsValid", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
+authRouter.post("/api/refresh-token", async (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(401).json({ msg: "Refresh token is required" });
+  }
+
+  const user = await User.findOne({ refreshToken });
+  if (!user) {
+    return res.status(403).json({ msg: "Refresh token is invalid" });
+  }
+
+  try {
+    const verified = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    const newAccessToken = jwt.sign(
+      { id: verified.id },
+      process.env.ACCESS_SECRET,
+      { expiresIn: "1m" }
+    );
+
+    const newRefreshToken = jwt.sign(
+      { id: verified.id },
+      process.env.REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    user.refreshToken = newRefreshToken;
+    await user.save();
+
+    return res.json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken
+    });
+  } catch (error) {
+    return res.status(403).json({ msg: "Invalid or expired refresh token" });
+  }
+});
+//check token validity
+
 authRouter.post("/api/logout", async (req, res) => {
   const { refreshToken } = req.body;
 
@@ -156,7 +155,6 @@ authRouter.post("/api/logout", async (req, res) => {
     return res.status(400).json({ msg: "Refresh token is required" });
   }
 
-  // احذف التوكن من المستخدم
   await User.findOneAndUpdate(
     { refreshToken },
     { refreshToken: null }
@@ -164,7 +162,6 @@ authRouter.post("/api/logout", async (req, res) => {
 
   res.status(200).json({ msg: "Logged out successfully" });
 });
-
 
 //Define a Get Route for the authentication router
 authRouter.get("/", auth, async (req, res) => {

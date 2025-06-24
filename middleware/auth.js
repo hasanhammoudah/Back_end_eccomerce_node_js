@@ -12,7 +12,7 @@ const auth = async (req, res, next) => {
             return res.status(401).json({ msg: "No authentication token, authorization denied" });
         }
         //verify the jwt token using the secret key
-        const verified = jwt.verify(token, "passwordkey");
+        const verified = jwt.verify(token, process.env.ACCESS_SECRET);
         if (!verified) {
             return res.status(401).json({ msg: "Token verification failed" });
 
@@ -47,7 +47,6 @@ const vendorAuth= (req,res,next)=>{
     if(!req.user.role || req.user.role !== 'vendor'){
         return res.status(401).json({msg:"Access denied,only vendors are allowed"});
     }
-
     //if the user a vendor,proceed to the next middleware or route handler
     next();
    } catch (error) {
